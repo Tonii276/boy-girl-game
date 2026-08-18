@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Boy & Girl Game</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f4f6;color:#202124}
+.wrap{max-width:1050px;margin:auto;padding:20px}.card{background:#fff;border-radius:18px;padding:22px;box-shadow:0 5px 20px #0001;margin-bottom:18px}
+h1,h2{text-align:center;margin:4px 0 14px}.sub{text-align:center;color:#666}.form{max-width:600px;margin:auto}
+label{display:block;font-weight:bold;margin:13px 0 6px}input,select{width:100%;padding:12px;border:1px solid #bbb;border-radius:10px;font-size:16px}
+button{border:0;border-radius:10px;padding:12px 18px;font-weight:bold;cursor:pointer;background:#222;color:#fff;margin:5px}
+button.alt{background:#e9e9e9;color:#222}.buttons{text-align:center;margin-top:14px}.hidden{display:none}
+.choice{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}.choice button{margin:0}
+.code{font-size:34px;font-weight:bold;text-align:center;letter-spacing:6px;padding:12px}
+.categories{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.cat{background:#eee;border-radius:10px;padding:10px}.fixed{font-weight:bold}
+.info{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px}.pill{background:#eee;border-radius:999px;padding:9px 13px}
+.grid{overflow:auto;display:block;margin-top:12px}table{border-collapse:collapse;width:100%;min-width:900px;background:#fff}th,td{border:1px solid #aaa;padding:8px;text-align:center}th{background:#eee;font-size:13px}td input{border:0;border-radius:0}
+.players{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}.player{padding:10px;border-radius:10px;background:#f1f1f1}.ready{font-weight:bold}
+.scoreboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.scorebox{text-align:center;background:#f1f1f1;border-radius:12px;padding:12px}.scorebox b{font-size:25px}
+.result td{font-size:14px}.winner{text-align:center;font-size:32px;font-weight:bold;padding:30px}
+.small{font-size:13px;color:#666;text-align:center}.checkbox{margin:12px 0;padding:12px;background:#f3f3f3;border-radius:12px;max-height:300px;overflow:auto}.checkbox div{padding:4px 0}.reviewbox{margin-top:16px;padding:14px;background:#fff7d6;border-radius:12px}.reviewitem{padding:8px 0;border-bottom:1px solid #e5d98c}.reviewitem button{padding:6px 10px;font-size:12px}.status{text-align:center;font-weight:bold}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<section id="home" class="card">
+<h1>🎲 Boy & Girl Game</h1>
+<p class="sub">Create a game and share the link or code with your players.</p>
+<div class="form">
+<label>Your name</label><input id="name" placeholder="Enter your name">
+<label>Number of players</label>
+<select id="playerCount"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select>
+<label>Extra categories <span class="small">(Boy's Name + Girl's Name are always included)</span></label>
+<select id="catCount"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select>
+<label>Category selection</label>
+<select id="catMode" onchange="categoryModeChanged()">
+<option value="random">🎲 Random Categories</option>
+<option value="set1">Set 1 — Music & TV</option>
+<option value="set2">Set 2 — People & Things</option>
+<option value="set3">Set 3 — Everyday</option>
+</select>
+<div id="preview"></div>
+<div class="buttons">
+<button onclick="randomisePreview()">🎲 Randomise Categories</button>
+<button onclick="createGame()">Create Game</button>
+<button class="alt" onclick="showJoin()">Join a Game</button>
+</div>
+<div id="joinBox" class="hidden">
+<label>Game code</label><input id="joinCode" maxlength="6" placeholder="ABC123">
+<button onclick="joinGame()">Join</button>
+</div>
+<p id="homeStatus" class="status"></p>
+</div>
+</section>
+
+<section id="lobby" class="card hidden">
+<h2>Game Lobby</h2>
+<p class="sub">Share this code or the generated link with your players.</p>
+<div id="gameCode" class="code"></div>
+<div class="buttons"><button onclick="copyLink()">🔗 Copy Share Link</button></div>
+<div id="lobbyCats" class="categories"></div>
+<h3>Players</h3><div id="lobbyPlayers" class="players"></div>
+<div class="buttons"><button id="startBtn" type="button" onclick="startGame()">▶ Start Game</button></div>
+<p id="lobbyStatus" class="status"></p>
+</section>
+
+<section id="game" class="card hidden">
+<h2>Round <span id="roundNo">1</span></h2>
+<div class="info"><div class="pill">Alphabet: <b>A–Z</b></div><div class="pill">Players: <b id="playerTotal">0</b></div></div>
+<div id="scoreboard" class="scoreboard"></div>
+<div class="buttons">
+<button id="lockBtn" onclick="lockAnswers()">🔒 Lock All Answers</button>
+</div>
+<p id="gameStatus" class="status"></p>
+<div id="categorySummary" class="small"></div>
+<div id="answerCheck"></div>
+<div id="answerGrid" class="grid"></div>
+</section>
+
+<section id="results" class="card hidden">
+<h2>🏆 Round Results</h2>
+<div id="resultsBody"></div>
+<div class="buttons"><button id="nextBtn" onclick="nextRound()">🔄 Next Round</button><button onclick="finishGame()">🥇 Finish Game</button></div>
+</section>
+
+<section id="winner" class="card hidden">
+<div class="winner" id="winnerText"></div>
+<div id="finalScores" class="scoreboard"></div>
+<div class="buttons"><button onclick="location.href=location.pathname">New Game</button></div>
+</section>
+</div>
+
+<script>
+const FIXED=["Boy's Name","Girl's Name"];
+const BANK=["Band / Singer","Film / TV","Food / Drink","Animal","Famous Person","Car Make / Model","Fictional Character","Jobs","Country","Something in a House","Sport","Something You Wear","City","Object","Book","Song","Celebrity","Holiday Destination","Something in a Kitchen","Something in a Garden","Drink","Dessert","Brand","Hobby","School Subject","Shop","TV Show","Colour","Body Part","Something at School","Something in a Car","Video Game","Board Game","Superhero","Mythical Creature","Fruit","Vegetable","Restaurant","Something at the Beach","Something in the Bathroom","Something You Would Take on Holiday"];
+const SETS={
+ set1:[...FIXED,"Band / Singer","Film / TV","Food / Drink","Animal"],
+ set2:[...FIXED,"Famous Person","Car Make / Model","Fictional Character","Jobs"],
+ set3:[...FIXED,"Country","Something in a House","Sport","Something You Wear"]
+};
+let peer=null, host=false, hostPeerId="", myId="", myName="", game=null, conns={};
+
+function $(id){return document.getElementById(id)}
+function show(id){["home","lobby","game","results","winner"].forEach(x=>$(x).classList.add("hidden"));$(id).classList.remove("hidden")}
+function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function getCategories(){
+ const n=+$("catCount").value, mode=$("catMode").value;
+ if(mode!=="random"){
+  const base=SETS[mode].slice(2);
+  const extras=[...base,...shuffle(BANK.filter(x=>!FIXED.includes(x)&&!base.includes(x)))];
+  return [...FIXED,...extras.slice(0,n)];
+ }
+ return [...FIXED,...shuffle(BANK.filter(x=>!FIXED.includes(x))).slice(0,n)];
+}
+function renderPreview(cats=getCategories()){
+ $("preview").innerHTML="<div class='categories'>"+cats.map((c,i)=>`<div class='cat ${i<2?"fixed":""}'>${i<2?"🔒 ":""}${c}</div>`).join("")+"</div>";
+}
+function categoryModeChanged(){renderPreview()}
+function randomisePreview(){ $("catMode").value="random";renderPreview(getCategories()) }
+renderPreview();
+
+function newPeer(){
+ return new Promise((resolve,reject)=>{
+  peer=new Peer();
+  peer.on("open",id=>{myId=id;resolve(id)});
+  peer.on("connection",c=>{setupConn(c)});
+  peer.on("error",e=>reject(e));
+ });
+}
+function setupConn(c){
+ conns[c.peer]=c;
+ c.on("data",data=>handleMessage(data,c.peer));
+ c.on("close",()=>{delete conns[c.peer];if(host){renderLobby();broadcast({t:"state",g:game})}});
+}
+function send(c,msg){if(c&&c.open)c.send(msg)}
+function broadcast(msg){Object.values(conns).forEach(c=>send(c,msg))}
+function gameCode(){return Math.random().toString(36).slice(2,8).toUpperCase()}
+
+async function createGame(){
+ myName=$("name").value.trim();if(!myName)return alert("Enter your name.");
+ try{await newPeer()}catch(e){return alert("Could not start the online connection. Please check your internet connection and try again.")}
+ host=true;hostPeerId=myId;
+ game={code:gameCode(),host:myId,maxPlayers:+$("playerCount").value,categories:getCategories(),round:1,letter:"",started:false,finished:false,players:{},scores:{},answers:{},validation:{},locked:{},results:null};
+ game.players[myId]={name:myName};game.scores[myId]=0;
+ renderLobby();show("lobby");
+}
+function renderLobby(){
+ $("gameCode").textContent=game.code;
+ $("lobbyCats").innerHTML=game.categories.map((c,i)=>`<div class='cat ${i<2?"fixed":""}'>${i<2?"🔒 ":""}${escapeHtml(c)}</div>`).join("");
+ $("lobbyPlayers").innerHTML=Object.entries(game.players).map(([id,p])=>`<div class='player'>${escapeHtml(p.name)}${id===myId?" (You)":""}</div>`).join("");
+ const count=Object.keys(game.players).length;
+ const isHost=(host || game.host===myId);
+ if(isHost) host=true;
+ $("lobbyStatus").textContent=`${count} / ${game.maxPlayers} players joined${count>=2 && isHost ? " — ready to start!" : " — waiting for players"}`;
+ const btn=$("startBtn");
+ btn.disabled=!(isHost && count>=2);
+ btn.style.opacity=btn.disabled?"0.55":"1";
+ btn.style.cursor=btn.disabled?"not-allowed":"pointer";
+}
+async function copyLink(){
+ const url=location.href.split("?")[0]+"?join="+game.code+"&host="+encodeURIComponent(hostPeerId);
+ try{await navigator.clipboard.writeText(url);$("lobbyStatus").textContent="Share link copied!";}catch(e){prompt("Copy this link:",url)}
+}
+function showJoin(){$("joinBox").classList.remove("hidden")}
+async function joinGame(){
+ myName=$("name").value.trim();let code=$("joinCode").value.trim().toUpperCase();if(!myName||!code)return alert("Enter your name and game code.");
+ const params=new URLSearchParams(location.search), h=params.get("host");
+ if(!h)return alert("For a join link, use the link shared by the host. If joining by code only, the host must provide their share link.");
+ try{await newPeer();hostPeerId=h;let c=peer.connect(h,{reliable:true});conns[h]=c;c.on("open",()=>send(c,{t:"join",name:myName,code}));setupConn(c)}catch(e){alert("Could not connect to the host.")}
+}
+function handleMessage(m,from){
+ if(m.t==="join"&&host){
+  if(m.code!==game.code)return;
+  if(Object.keys(game.players).length>=game.maxPlayers)return send(conns[from],{t:"error",msg:"Game is full."});
+  game.players[from]={name:m.name};game.scores[from]=0;renderLobby();broadcast({t:"state",g:game});send(conns[from],{t:"welcome",host:myId,g:game});return;
+ }
+ if(m.t==="welcome"){hostPeerId=m.host;game=m.g;show("lobby");renderLobby();return}
+ if(m.t==="state"){game=m.g;hostPeerId=game.host; if(game.started) {show("game");renderGame()} else {show("lobby");renderLobby()} return}
+ if(m.t==="start"){game=m.g;show("game");renderGame();return}
+ if(m.t==="answers"){if(host){game.answers[from]=m.answers;game.validation=game.validation||{};game.validation[from]=m.validation||[];game.locked[from]=true;checkAllLocked();}return}
+ if(m.t==="results"){game=m.g;show("results");renderResults();return}
+ if(m.t==="next"){game=m.g;show("game");renderGame();return}
+ if(m.t==="finish"){game=m.g;show("winner");renderWinner();return}
+ if(m.t==="error")alert(m.msg);
+}
+
+/* Answer checker */
+const CHECK_LISTS={
+"Country":"Afghanistan Albania Algeria Andorra Angola Antigua Argentina Armenia Australia Austria Azerbaijan Bahamas Bahrain Bangladesh Barbados Belarus Belgium Belize Benin Bhutan Bolivia Botswana Brazil Brunei Bulgaria Burundi Cambodia Cameroon Canada Chad Chile China Colombia Comoros Congo Croatia Cuba Cyprus Denmark Djibouti Dominica Ecuador Egypt Eritrea Estonia Eswatini Ethiopia Fiji Finland France Gabon Gambia Georgia Germany Ghana Greece Grenada Guatemala Guinea Guyana Haiti Honduras Hungary Iceland India Indonesia Iran Iraq Ireland Israel Italy Jamaica Japan Jordan Kazakhstan Kenya Kiribati Kuwait Kyrgyzstan Laos Latvia Lebanon Lesotho Liberia Libya Liechtenstein Lithuania Luxembourg Madagascar Malawi Malaysia Maldives Mali Malta Mauritania Mauritius Mexico Micronesia Moldova Monaco Mongolia Montenegro Morocco Mozambique Myanmar Namibia Nauru Nepal Netherlands Nicaragua Niger Nigeria Norway Oman Pakistan Palau Panama Paraguay Peru Philippines Poland Portugal Qatar Romania Rwanda Samoa Senegal Serbia Seychelles Singapore Slovakia Slovenia Somalia Spain Sudan Suriname Sweden Switzerland Syria Taiwan Tajikistan Tanzania Thailand Togo Tonga Tunisia Turkey Turkmenistan Tuvalu Uganda Ukraine Uruguay Uzbekistan Vanuatu Venezuela Vietnam Yemen Zambia Zimbabwe".split(" "),
+"Sport":"Archery Athletics Badminton Baseball Basketball Boxing Cricket Cycling Darts Fencing Football Golf Gymnastics Handball Hockey Judo Karate Lacrosse Motorsport Netball Rowing Rugby Running Sailing Skiing Snooker Soccer Squash Surfing Swimming Table Tennis Taekwondo Tennis Volleyball Wrestling".split(" "),
+"Animal":"Aardvark Albatross Alligator Alpaca Antelope Armadillo Baboon Badger Bat Bear Beaver Bee Bison Buffalo Butterfly Camel Cat Cheetah Chicken Chimpanzee Cobra Cow Coyote Crab Crocodile Crow Deer Dog Dolphin Donkey Dove Duck Eagle Eel Elephant Elk Falcon Ferret Finch Flamingo Fox Frog Gazelle Gecko Giraffe Goat Goose Gorilla Hamster Hare Hawk Hedgehog Hippo Horse Hyena Iguana Jackal Jaguar Jellyfish Kangaroo Koala Leopard Lion Llama Lobster Lynx Magpie Manatee Meerkat Mole Monkey Moose Mouse Mule Octopus Orangutan Otter Owl Ox Panda Panther Parrot Peacock Pelican Penguin Pig Pigeon PolarBear Porcupine Rabbit Raccoon Rat Raven Reindeer Rhinoceros Robin Salamander Salmon Scorpion Seal Shark Sheep Skunk Sloth Snail Snake Sparrow Spider Squid Squirrel Starfish Stingray Swan Tapir Tiger Toad Tortoise Toucan Turkey Turtle Vulture Walrus Wasp Weasel Whale Wolf Wolverine Wombat Woodpecker Yak Zebra".split(" "),
+"Jobs":"Accountant Actor Architect Artist Astronaut Author Baker Barber Bartender Biologist Builder Butcher Carpenter Chef Chemist Cleaner Coach Dentist Designer Doctor Driver Electrician Engineer Farmer Firefighter Florist Gardener Hairdresser Journalist Judge Lawyer Librarian Mechanic Nurse Optician Paramedic Pharmacist Photographer Pilot Plumber Police Officer Politician Professor Receptionist Researcher Sailor Scientist Secretary Singer Soldier Solicitor Surgeon Teacher Technician Therapist Vet Waiter Welder Writer".split(" ")
+};
+const CAR_MAKES="Abarth Acura Alfa Romeo Aston Martin Audi Bentley BMW Bugatti Buick Cadillac Chevrolet Chrysler Citroen Dacia Dodge Ferrari Fiat Ford Genesis Honda Hyundai Jaguar Jeep Kia Lamborghini Land Rover Lexus Lincoln Lotus Maserati Mazda McLaren Mercedes Mini Mitsubishi Nissan Peugeot Porsche Renault Rolls Royce Saab Seat Skoda Smart Subaru Suzuki Tesla Toyota Vauxhall Volkswagen Volvo".toLowerCase().split("|");
+
+
+function startGame(){
+ const isHost=(host || (game && game.host===myId));
+ if(isHost) host=true;
+ if(!isHost){ $("lobbyStatus").textContent="Only the player who created the game can start it."; return; }
+ const count=game && game.players ? Object.keys(game.players).length : 0;
+ if(count<2){ $("lobbyStatus").textContent=`Waiting for players: ${count} / ${game.maxPlayers}`; return; }
+
+ // Ensure the game always has a category list before rendering.
+ if(!Array.isArray(game.categories) || game.categories.length<2){
+   game.categories=getCategories();
+ }
+ if(!game.scores) game.scores={};
+ Object.keys(game.players).forEach(id=>{if(game.scores[id]==null)game.scores[id]=0;});
+
+ game.started=true;
+ game.round=1;
+ game.answers={};
+ game.validation={};
+ game.locked={};
+ game.results=null;
+ game.reviewNeeded=[];
+
+ show("game");
+ renderGame();
+ broadcast({t:"start",g:game});
+}
+function renderGame(){
+ game.categories=Array.isArray(game.categories)?game.categories:[...FIXED,"Animal","Country","Sport","Jobs"];
+ game.players=game.players||{};
+ game.scores=game.scores||{};
+ game.answers=game.answers||{};
+ game.locked=game.locked||{};
+
+ $("roundNo").textContent=game.round||1;
+ $("playerTotal").textContent=Object.keys(game.players).length;
+ $("scoreboard").innerHTML=Object.entries(game.players).map(([id,p])=>
+   `<div class="scorebox">${escapeHtml(p.name||"Player")}<br><b>${game.scores[id]||0}</b></div>`
+ ).join("");
+
+ const locked=!!game.locked[myId];
+ $("lockBtn").disabled=locked;
+
+ // Show the categories clearly above the sheet.
+ $("categorySummary").textContent="Categories: "+game.categories.join(" • ");
+ $("gameStatus").textContent=locked
+   ?"All answers locked — waiting for the other players."
+   :"Fill in the A–Z sheet, then lock all your answers.";
+
+ let saved=game.answers[myId]||{};
+ let h="<table><tr><th>Letter</th>"+
+   game.categories.map(c=>`<th>${escapeHtml(c)}</th>`).join("")+
+   "</tr>";
+
+ "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(letter=>{
+   h+=`<tr><td><b>${letter}</b></td>`;
+   game.categories.forEach((cat,i)=>{
+     const key=letter+"_"+i;
+     h+=`<td><input id="a_${letter}_${i}" value="${escapeHtml(saved[key]||"")}" ${locked?"disabled":""} placeholder=""></td>`;
+   });
+   h+="</tr>";
+ });
+ h+="</table>";
+ $("answerGrid").innerHTML=h;
+ $("answerCheck").innerHTML="";
+}
+function checkOne(cat,answer){
+ let a=answer.trim();
+ if(!a)return {s:"blank",r:"Blank"};
+ if(!a.toUpperCase().startsWith(game.letter))return {s:"bad",r:"Must start with "+game.letter};
+ let list=CHECK_LISTS[cat];
+ if(cat==="Car Make / Model") list=CAR_MAKES;
+ if(list){
+   let n=a.toLowerCase();
+   if(list.some(x=>n===x.toLowerCase() || n.startsWith(x.toLowerCase()+" ")))return {s:"ok",r:"Recognised"};
+   return {s:"bad",r:"Not recognised for this category"};
+ }
+ return {s:"review",r:"Needs a quick review"};
+}
+function runAnswerCheck(){
+ let reports=[];
+ "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(letter=>{
+   game.categories.forEach((cat,i)=>{
+     let el=document.getElementById("a_"+letter+"_"+i);
+     let answer=el?el.value.trim():"";
+     if(answer){
+       let oldLetter=game.letter;
+       game.letter=letter;
+       let result=checkOne(cat,answer);
+       game.letter=oldLetter;
+       reports.push({letter,category:cat,answer,...result,key:letter+"_"+i});
+     }
+   });
+ });
+ let bad=reports.filter(x=>x.s==="bad");
+ let review=reports.filter(x=>x.s==="review");
+ let html="<div class='checkbox'><b>🔎 Answer check</b>";
+ if(!reports.length) html+="<div>Nothing entered yet.</div>";
+ reports.forEach(x=>{
+   html+=`<div>${x.s==="ok"?"✅":x.s==="bad"?"❌":"⚠️"} <b>${x.letter} — ${x.category}</b>: ${escapeHtml(x.answer)} — ${x.r}</div>`;
+ });
+ html+="</div>";
+ $("answerCheck").innerHTML=html;
+ return {reports,bad,review};
+}
+function lockAnswers(){
+ let check=runAnswerCheck();
+ if(check.bad.length)return alert("Please correct the ❌ answers before locking. Answers marked ⚠️ can be reviewed.");
+ let answers={};
+ "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(letter=>{
+   game.categories.forEach((cat,i)=>{
+     let el=document.getElementById("a_"+letter+"_"+i);
+     if(el && el.value.trim()) answers[letter+"_"+i]=el.value.trim();
+   });
+ });
+ game.answers[myId]=answers;
+ game.validation=game.validation||{};
+ game.validation[myId]=check.reports;
+ game.locked[myId]=true;
+ if(host)checkAllLocked();else send(conns[hostPeerId],{t:"answers",answers,validation:check.reports});
+ renderGame();
+}
+function calculateRoundScores(){
+ let scores={};Object.keys(game.players).forEach(id=>scores[id]=0);
+ const letters="ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+ for(let i=0;i<game.categories.length;i++){
+   for(const letter of letters){
+     const accepted=[];
+     Object.entries(game.validation||{}).forEach(([id,rs])=>{
+       const r=rs.find(x=>x.key===letter+"_"+i);
+       if(r && r.s==="ok" && game.answers[id] && game.answers[id][letter+"_"+i])
+         accepted.push({id,v:normaliseAnswer(game.answers[id][letter+"_"+i])});
+     });
+     accepted.forEach(x=>scores[x.id]+=accepted.filter(y=>y.v===x.v).length===1?10:5);
+   }
+ }
+ return scores;
+}
+function checkAllLocked(){
+ if(!host)return;
+ if(Object.keys(game.locked).length<Object.keys(game.players).length)return broadcast({t:"state",g:game});
+ game.results=calculateRoundScores();
+ game.reviewNeeded=[];
+ Object.entries(game.validation||{}).forEach(([id,rs])=>rs.forEach((r,i)=>{
+   if(r.s==="review"&&r.answer)game.reviewNeeded.push({id,i,letter:r.letter,category:r.category,answer:r.answer});
+ }));
+ Object.keys(game.players).forEach(id=>game.scores[id]=(game.scores[id]||0)+(game.results[id]||0));
+ broadcast({t:"results",g:game});show("results");renderResults();
+}
+function renderResults(){
+ let h="<table class='result'><tr><th>Letter</th>"+game.categories.map(c=>`<th>${c}</th>`).join("")+"</tr>";
+ "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(letter=>{
+   h+="<tr><td><b>"+letter+"</b></td>";
+   game.categories.forEach((cat,i)=>{
+     let cells=[];
+     Object.entries(game.players).forEach(([id,p])=>{
+       let v=(game.answers[id]||{})[letter+"_"+i];
+       if(v)cells.push(escapeHtml(p.name)+": "+escapeHtml(v));
+     });
+     h+="<td>"+(cells.join("<br>")||"—")+"</td>";
+   });
+   h+="</tr>";
+ });
+ h+="</table>";
+ $("resultsBody").innerHTML=h;
+ if(host && game.reviewNeeded && game.reviewNeeded.length){
+   $("resultsBody").innerHTML += "<div class='reviewbox'><h3>⚠️ Answers needing review</h3>"+
+   game.reviewNeeded.map((r,i)=>`<div class="reviewitem"><b>${escapeHtml(game.players[r.id].name)}</b> — ${escapeHtml(r.letter)} / ${escapeHtml(r.category)}: <b>${escapeHtml(r.answer)}</b> <button onclick="acceptReview(${i})">Accept</button><button class="alt" onclick="rejectReview(${i})">Reject</button></div>`).join("")+
+   "</div>";
+ }
+}
+function refreshReviewScores(){
+ let old=game.results||{};
+ let fresh=calculateRoundScores();
+ Object.keys(game.players).forEach(id=>game.scores[id]=(game.scores[id]||0)-(old[id]||0)+(fresh[id]||0));
+ game.results=fresh;
+}
+function acceptReview(i){
+ if(!host)return;
+ let r=game.reviewNeeded[i];if(!r)return;
+ game.validation[r.id][r.i].s="ok";
+ game.reviewNeeded.splice(i,1);refreshReviewScores();
+ broadcast({t:"results",g:game});renderResults();
+}
+function rejectReview(i){
+ if(!host)return;
+ let r=game.reviewNeeded[i];if(!r)return;
+ game.validation[r.id][r.i].s="bad";
+ game.reviewNeeded.splice(i,1);refreshReviewScores();
+ broadcast({t:"results",g:game});renderResults();
+}
+function nextRound(){
+ if(!host)return alert("Only the host can start the next round.");
+ game.round++;game.letter="";game.answers={};game.validation={};game.locked={};game.results=null;game.reviewNeeded=[];show("game");renderGame();broadcast({t:"next",g:game});show("game");renderGame();
+}
+function finishGame(){
+ if(!host)return alert("Only the host can finish the game.");
+ game.finished=true;broadcast({t:"finish",g:game});show("winner");renderWinner();
+}
+function renderWinner(){
+ let arr=Object.entries(game.scores).sort((a,b)=>b[1]-a[1]),top=arr[0][1],winners=arr.filter(x=>x[1]===top).map(x=>game.players[x[0]].name);
+ $("winnerText").textContent=winners.length>1?"🤝 It's a tie!":"🥇 "+winners[0]+" wins!";
+ $("finalScores").innerHTML=arr.map(([id,s])=>`<div class='scorebox'>${game.players[id].name}<br><b>${s}</b> points</div>`).join("");
+}
+
+// Support direct join links by putting the code/host in the URL.
+(async function(){
+ const p=new URLSearchParams(location.search),h=p.get("host"),c=p.get("join");
+ if(h&&c){$("joinCode").value=c;$("joinBox").classList.remove("hidden");$("homeStatus").textContent="You were invited to game "+c+". Enter your name and press Join a Game.";}
+})();
+</script>
+</body>
+</html>
+<script>
+window.addEventListener("load",function(){
+  const b=document.getElementById("startBtn");
+  if(b) b.addEventListener("click",function(e){
+    e.preventDefault();
+    try { startGame(); } catch(err) {
+      document.getElementById("lobbyStatus").textContent="Game could not start: "+err.message;
+      console.error(err);
+    }
+  });
+});
+</script>
